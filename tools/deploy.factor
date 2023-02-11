@@ -10,7 +10,7 @@ H{
     { deploy-math? t }
     { deploy-word-props? f }
     { deploy-c-types? f }
-    { deploy-help? t }
+    { deploy-help? f }
     { deploy-name "resurface" }
     { deploy-unicode? f }
 }
