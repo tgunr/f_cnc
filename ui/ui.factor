@@ -18,6 +18,7 @@ QUALIFIED-WITH: models.range mr
 IN: cnc.ui
 
 SYMBOLS: job-x job-y job-bit job-speed job-feed job-depth job-step ; 
+
 TUPLE: cnc-gadget < gadget xmax ymax bit speed feed depth step ;
 
 CONSTANT: initial-feed 1000
@@ -28,8 +29,8 @@ CONSTANT: initial-step 60
 
 : <cnc-gadget> ( -- gadget )
     cnc-gadget new
-        t >>clipped?
-        ${ WIDTH HEIGHT } >>pref-dim
+    t >>clipped?
+    ${ WIDTH HEIGHT } >>pref-dim
 ;
 
 : <12-point-label-control> ( model -- gadget )
@@ -74,13 +75,12 @@ PRIVATE>
 
 TUPLE: cnc-frame < pack ;
 
-:: <cnc-frame> ( -- cnc-frame )
-    cnc-frame new horizontal >>orientation
-    <cnc-gadget> :> cnc-gadget
-    cnc-gadget add-gadget
-    <pile> { 5 5 } >>gap 1.0 >>fill
-    cnc-gadget cnc-panel add-gadget
-    { 5 5 } <border> add-gadget ;
+: <cnc-frame> ( -- cnc-frame )
+    cnc-frame new  horizontal >>orientation
+    <cnc-gadget>
+    cnc-panel  { 5 5 } <border> add-gadget 
+    ;
 
-MAIN-WINDOW: cnc { { title "Cnc" } }
+
+MAIN-WINDOW: cnc { { title "CNC" } }
     <cnc-frame> >>gadgets ;
