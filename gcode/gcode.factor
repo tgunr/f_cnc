@@ -19,7 +19,7 @@ TUPLE: gcodes step feed bit-size codes ;
     ;
 
 : (gc) ( gcode n letter -- str )
-    [ number>string +space ] dip  prepend  append ;
+    [ dup number? [ number>string +space ] when ] dip  prepend  append ;
 
 : g0 ( -- gcode )   "G0 " ;
 : g1 ( -- gcode )   "G1 " ;
