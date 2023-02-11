@@ -4,9 +4,12 @@
 ! Description: CNC Machine
 ! Copyright (C) 2022 Dave Carlton.
 ! See http://factorcode.org/license.txt for BSD license.
-
-USING:  cnc.jobs cnc.machine cnc.bit cnc.material db.tuples math ;
+USING: accessors alien.enums alien.syntax cnc cnc.jobs
+cnc.machine cnc.bit cnc.material db db.sqlite db.tuples db.types kernel
+math uuid variables ;
 IN: cnc
+
+ENUM: units +mm+ +in+ ;
 
 : define-spindles ( --  )
     [ spindle recreate-table
@@ -42,62 +45,62 @@ IN: cnc
     ] with-jobs-db
     ;
 
-: define-bits ( -- )
-    [ bit recreate-table
-      "Surface End Mill" 1.0 +in+ +straight+ 2 1/4 f f
-      "BINSTAK" "https://www.amazon.com/gp/product/B08SKYYN7P/ref=ppx_yo_dt_b_search_asin_title"
-      <bit> insert-tuple
-      "Carving bit flat nose" 3.175 +mm+ +compression+ 2 3.175 17 38 
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Carving bit ball nose" 3.175 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 0.8 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 1.0 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 1.2 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 1.4 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 1.6 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 1.8 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 2.0 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 2.2 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 2.5 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Flat end mill" 3.0 +mm+ +compression+ 2 3.175 17 38
-      "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
-      <bit> insert-tuple
-      "Downcut End Mill Sprial" 3.175 +mm+ +down+ 2 3.175 17 38
-      "HOZLY" "https://www.amazon.com/gp/product/B073TXSLQK"
-      <bit> insert-tuple
-      "Downcut End Mill Sprial" 1/4 +in+ +compression+ 2 1/4 1.0 2.5
-      "EANOSIC" "https://www.amazon.com/gp/product/B09H33X98L"
-      <bit> insert-tuple
-    ] with-jobs-db ;
+! : define-bits ( -- )
+!     [ bit recreate-table
+!       "Surface End Mill" 1.0 +in+ +straight+ 2 1/4 f f
+!       "BINSTAK" "https://www.amazon.com/gp/product/B08SKYYN7P/ref=ppx_yo_dt_b_search_asin_title"
+!       <bit> insert-tuple
+!       "Carving bit flat nose" 3.175 +mm+ +compression+ 2 3.175 17 38 
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Carving bit ball nose" 3.175 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 0.8 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 1.0 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 1.2 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 1.4 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 1.6 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 1.8 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 2.0 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 2.2 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 2.5 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Flat end mill" 3.0 +mm+ +compression+ 2 3.175 17 38
+!       "Genmitsu" "https://www.amazon.com/gp/product/B08CD99PWL"
+!       <bit> insert-tuple
+!       "Downcut End Mill Sprial" 3.175 +mm+ +down+ 2 3.175 17 38
+!       "HOZLY" "https://www.amazon.com/gp/product/B073TXSLQK"
+!       <bit> insert-tuple
+!       "Downcut End Mill Sprial" 1/4 +in+ +compression+ 2 1/4 1.0 2.5
+!       "EANOSIC" "https://www.amazon.com/gp/product/B09H33X98L"
+!       <bit> insert-tuple
+!     ] with-jobs-db ;
 
 : define-materials ( -- )
     [ material recreate-table
       "Plywoord Sanded 3/4" "Lowes" 57.00 <material> insert-tuple
     ] with-jobs-db ;
 
-: define-all ( -- )
-    define-types define-spindles define-machines  define-bits  define-materials ;
+! : define-all ( -- )
+!     define-types define-spindles define-machines  define-bits  define-materials ;
 
 : save-jobs ( -- )
     [  
