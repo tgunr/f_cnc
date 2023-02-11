@@ -7,7 +7,7 @@
 USING: cnc.SM2 cnc.bit cnc.machine cnc.tools io io.encodings.utf8
 io.files kernel math.parser multiline sequences ;
 FROM: cnc.machine => machine ;
-IN: cnc.machine.SM2
+IN: cnc.machine.1F
 
 TUPLE: 1F < machine ; 
 
