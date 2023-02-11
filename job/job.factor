@@ -9,26 +9,29 @@ sequences uuid uuid.private ;
 IN: cnc.job
 
 
-TUPLE: job id name date finish client machine material cost note ;
+TUPLE: job job_id job_name job_date job_finish job_cost job_note job_status client_id machine_id material_id customer_id ;
 
 job "JOB" {
-    { "id" "ID" +db-assigned-id+ }
-    { "name" "NAME" TEXT }
-    { "date" "DATE" DATE }
-    { "client" "CLIENT" TEXT }
-    { "machine" "MACHINE" INTEGER }
-    { "material" "MATERIAL" INTEGER }
-    { "cost" "COST" DOUBLE }
-    { "finish" "FINISH" DATE }
+    { "job_id" "JOB_ID" +db-assigned-id+ }
+    { "job_name" "JOB_NAME" TEXT }
+    { "job_date" "JOB_DATE" DATE }
+    { "job_finish" "JOB_FINISH" DATE }
+    { "job_cost" "JOB_COST" DOUBLE }
+    { "job_note" "JOB_NOTE" TEXT }
+    { "job_status" "JOB_STATUS" TEXT }
+    { "client_id" "CLIENT_ID" INTEGER }
+    { "machine_id" "MACHINE_ID" INTEGER }
+    { "material_id" "MATERIAL_ID" INTEGER }
+    { "customer_id" "CUSTOMER_ID" INTEGER }
 } define-persistent
 
 : <job> ( name machine material -- job )
     job new 
-    over find-material >>material
-    nip  over find-machine >>machine
-    nip swap >>name
-    uuid1 >>id
-    (timestamp) >>date
+    over find-material >>material_id
+    nip  over find-machine >>machine_id
+    nip swap >>job_name
+    uuid1 >>job_id
+    (timestamp) >>job_date
     ;
 
 : fix-job ( job -- job )

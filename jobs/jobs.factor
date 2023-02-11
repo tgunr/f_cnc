@@ -3,10 +3,12 @@
 ! Description: CNC Jobs
 ! Copyright (C) 2022 Dave Carlton.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: db db.sqlite io.files kernel unix ;
+USING: cnc db db.sqlite io.files kernel unix variables ;
 IN: cnc.jobs
 
-TUPLE: jobs { path initial: "/Users/davec/Dropbox/3CL/Jobs/jobs.db" } db handle ;
+VARIABLE: jobs-db-path "/Users/davec/Dropbox/3CL/Data/jobs.db" 
+
+TUPLE: jobs { path initial: jobs-db-path } db handle ;
 
 : maybe-create ( path -- path )
     dup file-exists?
@@ -18,9 +20,7 @@ TUPLE: jobs { path initial: "/Users/davec/Dropbox/3CL/Jobs/jobs.db" } db handle 
     ;
 
 : with-jobs-db ( quot -- )
-    '[ "/Users/davec/Dropbox/3CL/Jobs/jobs.db"
-       <sqlite-db> _ with-db
-    ] call ; inline
+    '[ jobs-db-path <sqlite-db> _ with-db ] call ; inline
 
 
   
