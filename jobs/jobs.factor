@@ -12,7 +12,7 @@ TUPLE: jobs { path initial: jobs-db-path } db handle ;
 
 : maybe-create ( path -- path )
     dup file-exists?
-    [ dup open-rw close-file ] unless
+    [ dup "rw" fopen fclose ] unless
     ;
 
 : <jobs> ( -- jobs )
