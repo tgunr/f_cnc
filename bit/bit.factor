@@ -89,10 +89,8 @@ bit "amana" {
     { "id" "id" INTEGER }
 } define-persistent
 
-SYMBOL: amana-db-path
-INITIALIZE: amana-db-path "/Users/davec/Dropbox/Family Room/3CL/Data/amanavt.db" ; 
-SYMBOL: amana-db
-INITIALIZE: amana-db "/Users/davec/Dropbox/Family Room/3CL/Data/Amana.db" ;
+INITIALIZED-SYMBOL: amana-db-path [ "/Users/davec/Dropbox/Family Room/3CL/Data/amanavt.db" ]
+INITIALIZED-SYMBOL: amana-db [ "/Users/davec/Dropbox/Family Room/3CL/Data/Amana.db" ]
 
 : (>mm) ( bit slot-value -- mm-value bit )
     >number 25.4 * swap ;
@@ -159,12 +157,13 @@ CONSTANT: tooldata "tool_cutting_data."
     id
     FROM
 	amana
-    WHERE
     "
     [  CHAR: \x09 dupd =  over  CHAR: \x0a = or   [ drop CHAR: \x20 ] when  ] map 
     ;
 
-
+: tool-where ( -- sql )
+    tool-preamble " WHERE " append ;
+    
 : geometry-clause  ( string -- clause )
     toolgeometry prepend ;
 
@@ -176,14 +175,14 @@ SYMBOL: sql-statement
     [ geometry-clause " and " append ] map
     "" swap [ append ] each
     "tool_cutting_data.feed_rate not null" append
-    tool-preamble prepend
+    tool-where prepend
     sql-statement set ;
 
 : bit-clause ( clauses -- )
     [  " and " append ] map
     "" swap [ append ] each
     "feed_rate not null" append
-    tool-preamble prepend
+    tool-where prepend
     sql-statement set ;
 
 : (bit-find) ( clauses -- bits )
@@ -193,13 +192,16 @@ SYMBOL: sql-statement
     (bit-find)  [ bit slots>tuple ] map
     ;
 
+: all-bits ( -- bits )
+    { } (bit-find)  [ bit slots>tuple ] map ;
+
 : find-bit-names ( named --  bit )
     "name_format LIKE " prepend { } 1sequence  (bit-find) ; 
 
 : find-bit-id ( string -- bit )
     "'" prepend  "'" append
     "id = "  prepend
-    tool-preamble prepend
+    tool-where prepend
     sql-statement set
     [ sql-statement get sql-query ] with-amana-db
     [ bit slots>tuple ] map  first
