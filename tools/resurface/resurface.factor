@@ -104,10 +104,7 @@ FROM: cnc.gcode => f ;
     ;
 
 : resurface ( xmax ymax -- )
-    "a7f018eb-9bb9-4540-8536-b6d6ffb453e4" find-bit-id >mm
-    "0" >>units
-    0.5 >>stepdown 
-    -rot bit-resurface ;
+    resurface-bit -rot bit-resurface ;
     
 GLOBAL: xmax
 GLOBAL: ymax
@@ -133,7 +130,7 @@ FROM: syntax => f ;
 !         { "xmax" "ymax" "bitsize" "speed" "feed" "depth" } [ get-global ] map  
 !         f over member?
 !         [ drop  usage ] 
-!         [ [ string>number ] map
+!         [ [ >number ] map
 !           6 firstn  resurface
 !           "Resurface files have been written to the desktop" print
 !         ]
