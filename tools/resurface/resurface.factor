@@ -64,7 +64,9 @@ FROM: cnc.gcode => f ;
     preamble
     g1 0 x 0 y toolpath bit>> feed_rate>> f suffix
     3 M toolpath bit>> spindle_speed>>  s suffix
-    g1 toolpath bit>> stepdown>> >number  neg z  suffix
+    g1 toolpath bit>> stepdown>> >number  neg z  
+    toolpath bit>> plunge_rate>> f  suffix
+    g1 0 x 0 y toolpath bit>> feed_rate>> f suffix
     toolpath surface-x
     g0 10 z  suffix
     g0 0 x 0 y  suffix
@@ -79,7 +81,9 @@ FROM: cnc.gcode => f ;
     preamble
     g1 0 x 0 y toolpath bit>> feed_rate>> f suffix
     3 M toolpath bit>> spindle_speed>> s  suffix
-    g1 toolpath bit>> stepdown>> >number  neg z  suffix
+    g1 toolpath bit>> stepdown>> >number  neg z
+    toolpath bit>> plunge_rate>> f suffix
+    g1 0 x 0 y toolpath bit>> feed_rate>> f suffix
     toolpath surface-y
     g0 10 z  suffix
     g0 0 x 0 y  suffix
@@ -93,21 +97,21 @@ FROM: cnc.gcode => f ;
     "~/Desktop/"  toolpath machine>> name>> append  " Boundary.gcode" append  utf8  
     [ toolpath boundary ] with-file-writer ;
 
-
+SYMBOL: LAST-TOOLPATH
+FROM: cnc.bit => >mm ; 
 : bit-resurface ( bit xmax ymax -- )
-    <surface-job>
-    over units>> >number 1 =
-    [  [ >mm ] dip ] when <toolpath>
+    <surface-job> <toolpath>
+    dup LAST-TOOLPATH set
     [ resurfacex  ] keep
     [ resurfacey  ] keep
     bounds-check
     ;
 
 : resurface ( xmax ymax -- )
-    "a7f018eb-9bb9-4540-8536-b6d6ffb453e4" find-bit-id >mm
-    "0" >>units
-    0.5 >>stepdown 
-    -rot bit-resurface ;
+    "lopud-divok" find-bit-id
+    [ -rot bit-resurface ]
+    [ drop 2drop  "Bit not found" print ]
+    if ;
     
 GLOBAL: xmax
 GLOBAL: ymax
