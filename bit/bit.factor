@@ -4,105 +4,89 @@
 ! Description: CNC bit data
 ! Copyright (C) 2022 Dave Carlton.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors alien.enums alien.syntax classes.tuple cnc
-cnc.jobs db db.sqlite db.tuples db.types kernel math math.parser namespaces
-quotations sequences uuid variables ;
+USING: accessors alien.enums alien.syntax assocs classes.tuple cnc
+ cnc.jobs combinators combinators.smart db db.sqlite db.tuples
+ db.types file.xattr hashtables kernel math math.parser
+ models namespaces proquint quotations sequences strings
+ syntax.terse ui ui.commands ui.gadgets ui.gadgets.borders ui.gadgets.editors
+ ui.gadgets.labels ui.gadgets.packs ui.gadgets.toolbar ui.gadgets.worlds ui.gestures ui.tools.browser
+ extensions ui.tools.common ui.tools.deploy uuid uuid.private variables  ;
 IN: cnc.bit
-
-! TUPLE: bit id name size unit type flutes shank edge length manf url cost note ;
-
-! bit "BITS" {
-!     { "id" "ID" +db-assigned-id+ }
-!     { "name" "NAME" TEXT }
-!     { "size" "SIZE" DOUBLE }
-!     { "unit" "UNIT" INTEGER }
-!     { "type" "TYPE" INTEGER }
-!     { "flutes" "FLUTES" INTEGER }
-!     { "shank" "SHANK" DOUBLE }
-!     { "edge" "EDGE" DOUBLE }
-!     { "length" "LENGTH" DOUBLE }
-!     { "manf" "MANF" TEXT }
-!     { "url" "URL" URL }
-!     { "cost" "COST" DOUBLE }
-!     { "note" "NOTE" TEXT }
-! } define-persistent
-
 
 ENUM: bitType +straight+ +up+ +down+ +compression+ ;
 
-! : <bit> ( name size unit type flutes shank edge length manf url -- bit )
-!     bit new
-!     swap >>url
-!     swap >>manf
-!     swap >>length
-!     swap >>edge
-!     swap >>shank
-!     swap >>flutes
-!     swap enum>number >>type
-!     swap enum>number >>unit
-!     swap >>size
-!     swap >>name ;
-
 TUPLE: bit
-    name_format
+    name
     tool_type 
-    diameter 
     units 
-    feed_rate 
-    rate_units 
-    plunge_rate 
+    diameter 
+    stepdown 
+    stepover
     spindle_speed 
     spindle_dir 
-    stepdown 
-    stepover 
-    length_units
+    rate_units 
+    feed_rate 
+    plunge_rate 
     id
-;
+    ;
 
-! TUPLE: amana-bit1
-!     name_format
-!     { tool_type integer }
-!     { diameter real }
-!     { units integer }
-!     { feed_rate integer }
-!     { rate_units integer }
-!     { plunge_rate integer }
-!     { spindle_speed integer }
-!     { spindle_dir integer }
-!     { stepdown real }
-!     { stepover real }
-!     { clear_stepover real }
-!     { length_units integer } ;
+: convert-bit-slots ( bit -- bit )
+    [ diameter>> ] retain  >number  >>diameter 
+    [ units>> ] retain  >number  >>units 
+    [ feed_rate>> ] retain  >number  >>feed_rate 
+    [ rate_units>> ] retain  >number  >>rate_units 
+    [ plunge_rate>> ] retain  >number  >>plunge_rate 
+    [ spindle_speed>> ] retain  >number  >>spindle_speed 
+    [ spindle_dir>> ] retain  >number  >>spindle_dir 
+    [ stepdown>> ] retain  >number  >>stepdown 
+    [ stepover>> ] retain  >number  >>stepover 
+    ;
 
 bit "amana" {
-    { "name_format" "name_format" TEXT }
+    { "name" "name" TEXT }
     { "tool_type" "tool_type" INTEGER }
-    { "diameter" "diameter" DOUBLE }
     { "units" "units" INTEGER }
-    { "feed_rate" "feed_rate" INTEGER }
-    { "rate_units" "rate_units" INTEGER }
-    { "plunge_rate" "plunge_rate" INTEGER }
+    { "diameter" "diameter" DOUBLE }
+    { "stepdown" "stepdown" DOUBLE }
+    { "stepover" "stepdown" DOUBLE }
     { "spindle_speed" "spindle_speed" INTEGER }
     { "spindle_dir" "spindle_dir" INTEGER }
-    { "stepdown" "stepdown" DOUBLE }
-    { "length_units" "length_units" INTEGER }
+    { "rate_units" "rate_units" INTEGER }
+    { "feed_rate" "feed_rate" DOUBLE }
+    { "plunge_rate" "plunge_rate" DOUBLE }
     { "id" "id" INTEGER }
 } define-persistent
 
-SYMBOL: amana-db-path
-INITIALIZE: amana-db-path "/Users/davec/Dropbox/Family Room/3CL/Data/amanavt.db" ; 
-SYMBOL: amana-db
-INITIALIZE: amana-db "/Users/davec/Dropbox/Family Room/3CL/Data/Amana.db" ;
+INITIALIZED-SYMBOL: amanavt-db [ "/Users/davec/Dropbox/3CL/Data/amanavt.db" ]
+INITIALIZED-SYMBOL: amana-db [ "/Users/davec/Dropbox/3CL/Data/Amana.db" ]
+INITIALIZED-SYMBOL: carve-db [ "/Volumes/C/ProgramData/Vectric/VCarve Pro/V11.5/ToolDatabase/tools.vtdb" ]
 
 : (>mm) ( bit slot-value -- mm-value bit )
-    >number 25.4 * swap ;
+    over units>> 1 = 
+    [ >number 25.4 * ] when
+    >number swap
+    ;
 
+ENUM: RATE-UNITS { mm/sec 0 } { mm/min 1 } { m/min 2 } { in/sec 3 } { in/min 4 } { ft/min 5 } ;
+
+: (>mm/min) ( bit value -- mm-value bit )
+    >number  over rate_units>> >number  <RATE-UNITS> {
+        { mm/sec [ 60 * ] }
+        { mm/min [ ] }
+        { m/min [ 1000 / ] }
+        { in/sec [ 25.4 * 60 * ] }
+        { in/min [ 25.4 * ] }
+        { ft/min [ 304.8 * ] }
+    } case  swap ;
+    
 : >mm ( bit -- bit )
     [ dup diameter>> (>mm) diameter<< ] keep
-    [ dup feed_rate>> (>mm) feed_rate<< ] keep
-    [ dup plunge_rate>> (>mm) plunge_rate<< ] keep
+    [ dup feed_rate>> (>mm/min) feed_rate<< ] keep
+    [ dup plunge_rate>> (>mm/min) plunge_rate<< ] keep
     [ dup stepdown>> (>mm) stepdown<< ] keep
     [ dup stepover>> (>mm) stepover<< ] keep
+    mm/min enum>number >>rate_units
+    0 >>units 
     ;
 
 TUPLE: amana < sqlite-db ;
@@ -113,103 +97,204 @@ TUPLE: amana < sqlite-db ;
 : with-amana-db ( quot -- )
     '[ <amana> _ with-db ] call ; inline
 
+: amana>bit ( array -- bit )  bit slots>tuple  convert-bit-slots ;
+: amanas>bits ( seq -- bits ? )
+    [ empty? ] [ f  ] [ [ amana>bit ] map t ] smart-if ;
+
+TUPLE: vcarve < amana ;
+: <vcarve> ( -- <vcarve> )
+    vcarve new
+    amanavt-db get >>path ;
+
+: with-vcarve-db ( quot -- )
+    '[  <vcarve> _  with-db ] call ; inline 
+
 CONSTANT: toolgeometry "tool_geometry."
 CONSTANT: tooldata "tool_cutting_data."
 
-! : tool-preamble ( -- sql )
-!     "SELECT
-! 	tool_geometry.name_format,
-! 	tool_geometry.tool_type,
-! 	tool_geometry.diameter,
-! 	tool_geometry.units,
-! 	tool_cutting_data.feed_rate,
-! 	tool_cutting_data.rate_units,
-! 	tool_cutting_data.plunge_rate,
-! 	tool_cutting_data.spindle_speed,
-! 	tool_cutting_data.spindle_dir,
-! 	tool_cutting_data.stepdown,
-! 	tool_cutting_data.stepover,
-! 	tool_cutting_data.clear_stepover,
-! 	tool_cutting_data.length_units,
-! 	tool_cutting_data.id,
-! 	tool_geometry.id
-!     FROM
-! 	tool_cutting_data
-! 	JOIN tool_entity ON tool_cutting_data.id = tool_entity.tool_cutting_data_id
-! 	JOIN tool_geometry ON tool_geometry.id = tool_entity.tool_geometry_id
-!     WHERE
-!     "
-!     [  CHAR: \x09 dupd =  over  CHAR: \x0a = or   [ drop CHAR: \x20 ] when  ] map 
-!     ;
+: clean-whitespace ( str -- 'str )
+    [  CHAR: \x09 dupd =
+       over  CHAR: \x0a = or
+       [ drop CHAR: \x20 ] when
+    ] map string-squeeze-spaces ;
 
-: tool-preamble ( -- sql )
-    "SELECT
-	name_format,
-	tool_type,
-	diameter,
-	units,
-	feed_rate,
-	rate_units,
-	plunge_rate,
-	spindle_speed,
-	spindle_dir,
-	stepdown,
-	stepover,
-	length_units,
-    id
-    FROM
-	amana
-    WHERE
-    "
-    [  CHAR: \x09 dupd =  over  CHAR: \x0a = or   [ drop CHAR: \x20 ] when  ] map 
-    ;
+SYMBOL: sql-statement 
+: do-amana ( statement -- result ? )
+    sql-statement set
+    [ sql-statement get sql-query ] with-amana-db
+    dup empty?
+    [ f ] [ [ amana>bit ] map t ] if ;
 
+: amana-drop ( -- )
+    "DROP TABLE IF EXISTS amana"
+    clean-whitespace  do-amana 2drop ;
 
+: amana-create ( -- )
+  "CREATE TABLE IF NOT EXISTS 'amana' (
+  'name' text NOT NULL,
+  'tool_type' integer NOT NULL,
+  'units' integer NOT NULL DEFAULT(0),
+  'diameter' real,
+  'stepdown' real,
+  'stepover' real,
+  'spindle_speed' integer,
+  'spindle_dir' integer,
+  'rate_units' integer  NOT NULL,
+  'feed_rate' real,
+  'plunge_rate' real,
+  'id' text PRIMARY KEY UNIQUE NOT NULL )"
+    clean-whitespace  do-amana 2drop ;
+
+: amanavt-preamble ( -- sql )
+    "SELECT 
+     tg.name_format,
+     tg.tool_type,
+     tg.units,
+     tg.diameter,
+     tcd.stepdown,
+     tcd.stepover,
+     tcd.spindle_speed,
+     tcd.spindle_dir,
+     tcd.rate_units,
+     tcd.feed_rate,
+     tcd.plunge_rate,
+     te.id
+     FROM tool_entity te 
+	 INNER JOIN tool_geometry tg ON ( tg.id = te.tool_geometry_id  )  
+	 INNER JOIN tool_cutting_data tcd ON ( tcd.id = te.tool_cutting_data_id  ) "
+    clean-whitespace ;
+
+: amana-where ( -- sql )
+    "SELECT * FROM amana WHERE " clean-whitespace ;
+    
 : geometry-clause  ( string -- clause )
     toolgeometry prepend ;
 
 : data-clause ( string -- clause )
     tooldata prepend ;
 
-SYMBOL: sql-statement 
 : bit-clause1 ( clauses -- )
     [ geometry-clause " and " append ] map
     "" swap [ append ] each
     "tool_cutting_data.feed_rate not null" append
-    tool-preamble prepend
+    amana-where prepend
     sql-statement set ;
 
-: bit-clause ( clauses -- )
+: bit-clause ( clauses -- 'claues )
     [  " and " append ] map
     "" swap [ append ] each
     "feed_rate not null" append
-    tool-preamble prepend
-    sql-statement set ;
+    amana-where prepend ;
 
-: (bit-find) ( clauses -- bits )
-    bit-clause [ sql-statement get sql-query ] with-amana-db ;
+: bit-add ( bit -- )
+    tuple>array  unclip drop 
+    "INSERT OR REPLACE INTO amana VALUES (" swap ! )
+    [ dup string? [ hard-quote ] when                             
+      dup number? [ number>string ] when
+      dup [ drop "NULL" ] unless
+      ", " append  append
+    ] each
+    unclip-last drop  unclip-last drop 
+    ");" append  do-amana 2drop ; 
+                                
+: bit-where ( clauses -- seq ? )
+    bit-clause do-amana ;
 
-: find-bit ( clauses -- seq )
-    (bit-find)  [ bit slots>tuple ] map
-    ;
+: find-bit-names ( named --  bit ? )
+    "name LIKE " prepend { } 1sequence bit-where ;
 
-: find-bit-names ( named --  bit )
-    "name_format LIKE " prepend { } 1sequence  (bit-find) ; 
-
-: find-bit-id ( string -- bit )
-    "'" prepend  "'" append
-    "id = "  prepend
-    tool-preamble prepend
-    sql-statement set
-    [ sql-statement get sql-query ] with-amana-db
-    [ bit slots>tuple ] map  first
-    ;
+: find-bit-id ( string -- bit ? )
+    hard-quote  "id = "  prepend
+    amana-where prepend  do-amana ;
 
 : 1/4-bits ( -- bits )
-    { "diameter = 0.25" "units = 1" }
-    find-bit ;
+    { "diameter = 0.25" "units = 1" } bit-where drop ;
+
+: 1/8bits ( -- bits )
+    { "diameter = 0.125" "units = 1" } bit-where drop ;
+
+: metric-bits ( -- bits ) 
+    { "units = 0" } bit-where drop ;
+
+: imperial-bits ( -- bits )
+    { "units = 0" } bit-where drop ;
 
 : resurface-bit ( -- bit )
-    "a7f018eb-9bb9-4540-8536-b6d6ffb453e4" find-bit-id  >mm
-    0.5 >>stepdown
-    0 >>units ; 
+    "lopud-divok" find-bit-id
+    [ drop "Bit not found" ] unless ; 
+
+: vcarve-bits ( -- bits )
+    amanavt-preamble sql-statement set
+    [ sql-statement get sql-query ] with-vcarve-db   amanas>bits drop ;
+
+: gather-amana-data ( -- bits )
+    amanavt-preamble sql-statement set
+    vcarve new  amanavt-db get >>path  
+    [ sql-statement get sql-query  ] with-db  amanas>bits drop ;
+
+: create-amana-db ( -- )
+    amana-drop  amana-create 
+    gather-amana-data  [ bit-add ] each ;
+
+TUPLE: bit-gadget < pack bit values ;
+SYMBOLS: bitName bitToolType bitDiameter bitUnits bitFeedRate bitRateUnits bitPlungeRate
+    bitSpindleSpeed bitSpindleDir bitStepDown bitStepOver bitClearStepOver bitLengthUnits ;
+
+: bit-help ( -- )  "cnc.bit" com-browse ;
+: bit-add-new ( -- )  ;
+
+bit-gadget "misc" "Miscellaneous commands" {
+    { T{ key-down f f "ESC" } close-window }
+} define-command-map
+
+bit-gadget "toolbar" f {
+    { T{ key-down f f "F1" } bit-help }
+    { f com-revert }
+    { f com-save }
+    { T{ key-down f f "RET" } bit-add-new }
+} define-command-map
+
+: default-bit ( bit -- assoc )
+    uuid1 string>uuid  32 >quint
+    >>id bit  associate  H{
+        { bitName "New Bit" }
+        { bitToolType 0 }
+        { bitDiameter 0.25 }
+        { bitUnits 1 }
+        { bitFeedRate 1000 }
+        { bitRateUnits 0 }
+        { bitPlungeRate 500 }
+        { bitSpindleSpeed 18000 }
+        { bitSpindleDir 0 }
+        { bitStepDown 1 }
+        { bitStepOver 2 }
+        { bitClearStepOver 2 }
+        { bitLengthUnits 1 }
+    } assoc-union ;
+
+: bit-guts ( parent -- parent )
+    bitName get <model-field>  "Bit Name:"
+    label-on-left add-gadget
+    bitToolType get <model-field> "Tool Type:"
+    label-on-left add-gadget
+    ;
+
+: <bit-values> ( bit -- control )    
+    default-bit [ <model> ] assoc-map [
+        <pile> bit-guts
+    ] with-variables ;
+    
+: <bit-gadget> ( bit -- gadget )
+    bit-gadget new  over >>bit  
+    vertical >>orientation
+    dup -rot swap <bit-values> >>values
+    dup values>> add-gadget
+    <toolbar> { 10 10 } >>gap  add-gadget
+    { 10 10 } >>gap  1 >>fill ;
+
+
+: bit-tool ( bit -- x )
+    [ <bit-gadget> { 10 10 } <border> white-interior ]
+    [ <world-attributes> "Bit" "(" ")" surround >>title 
+      [ { dialog-window } append ] change-window-controls ]
+      bi  swapd open-window ; 
