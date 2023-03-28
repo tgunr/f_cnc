@@ -10,27 +10,43 @@ USING: accessors alien.enums alien.syntax assocs classes.tuple cnc
  models namespaces proquint quotations sequences strings
  syntax.terse ui ui.commands ui.gadgets ui.gadgets.borders ui.gadgets.editors
  ui.gadgets.labels ui.gadgets.packs ui.gadgets.toolbar ui.gadgets.worlds ui.gestures ui.tools.browser
- extensions ui.tools.common ui.tools.deploy uuid uuid.private variables  ;
+ extensions ui.tools.common ui.tools.deploy uuid uuid.private variables  splitting ;
 IN: cnc.bit
 
+SYMBOL: amanavt-db amanavt-db [ "/Users/davec/Dropbox/3CL/Data/amanavt.db" ] initialize
+SYMBOL: amana-db amana-db [ "/Users/davec/Dropbox/3CL/Data/Amana.db" ]  initialize
+SYMBOL: vcarve-db vcarve-db [ "/Users/davec/Desktop/Imperial.db" ]  initialize
+
 ENUM: bitType +straight+ +up+ +down+ +compression+ ;
+ENUM: TOOLTYPE { ballnose 0 } { endmill 1 } { radius-endmill 2 } { v-bit 3 } { engraving 4 } { taper-ballmill 5 }
+    { drill 6 } { diamond 7 } { threadmill 14 } { multit-thread 15 } { laser 12 } ; 
+ENUM: RATE-UNITS { mm/sec 0 } { mm/min 1 } { m/min 2 } { in/sec 3 } { in/min 4 } { ft/min 5 } ;
 
-TUPLE: bit
-    name
-    tool_type 
-    units 
-    diameter 
-    stepdown 
-    stepover
-    spindle_speed 
-    spindle_dir 
-    rate_units 
-    feed_rate 
-    plunge_rate 
-    id
-    ;
+TUPLE: bit name tool_type units diameter stepdown stepover spindle_speed spindle_dir rate_units feed_rate plunge_rate
+    id amana_id ;
 
+: quintid ( -- id )   uuid1 string>uuid  32 >quint ; 
+
+: <bit> ( -- <bit> )
+    bit new  1 >>tool_type  1 >>units  18000 >>spindle_speed  0 >>spindle_dir  1 >>rate_units  quintid >>id ;
+
+: (inch>mm) ( bit inch -- bit mm )
+    over units>> 1 = [ 25.4 / ] when ;
+
+: >>diameter-mm ( object value -- object )   (inch>mm) >>diameter ;
+: >>stepover-mm ( object value -- object )   (inch>mm) >>stepover ;
+: >>stepdown-mm ( object value -- object )   (inch>mm)  >>stepdown ;
+: >>feed_rate-mm/min ( object value -- object )  25.4 * >>feed_rate  1 >>rate_units ; 
+: >>plunge_rate-mm/min ( object value -- object )  25.4 * >>plunge_rate  1 >>rate_units ; 
+
+! FROM: math.parser => >number ;
 : convert-bit-slots ( bit -- bit )
+    [ name>> ] retain  " " split  unclip  dup unclip
+    CHAR: # =
+    [ drop  [ " " join  trim-whitespace  >>name ] dip  >>amana_id ]
+    [ 3drop ]
+    if
+    [ tool_type>> ] retain  >number >>tool_type
     [ diameter>> ] retain  >number  >>diameter 
     [ units>> ] retain  >number  >>units 
     [ feed_rate>> ] retain  >number  >>feed_rate 
@@ -57,17 +73,11 @@ bit "amana" {
     { "id" "id" INTEGER }
 } define-persistent
 
-INITIALIZED-SYMBOL: amanavt-db [ "/Users/davec/Dropbox/3CL/Data/amanavt.db" ]
-INITIALIZED-SYMBOL: amana-db [ "/Users/davec/Dropbox/3CL/Data/Amana.db" ]
-INITIALIZED-SYMBOL: carve-db [ "/Volumes/C/ProgramData/Vectric/VCarve Pro/V11.5/ToolDatabase/tools.vtdb" ]
-
 : (>mm) ( bit slot-value -- mm-value bit )
     over units>> 1 = 
     [ >number 25.4 * ] when
     >number swap
     ;
-
-ENUM: RATE-UNITS { mm/sec 0 } { mm/min 1 } { m/min 2 } { in/sec 3 } { in/min 4 } { ft/min 5 } ;
 
 : (>mm/min) ( bit value -- mm-value bit )
     >number  over rate_units>> >number  <RATE-UNITS> {
@@ -97,14 +107,16 @@ TUPLE: amana < sqlite-db ;
 : with-amana-db ( quot -- )
     '[ <amana> _ with-db ] call ; inline
 
-: amana>bit ( array -- bit )  bit slots>tuple  convert-bit-slots ;
-: amanas>bits ( seq -- bits ? )
+: amana>bit ( amanavt -- bit )
+    bit slots>tuple convert-bit-slots ;
+
+: amanavt>bits ( seq -- bits ? )
     [ empty? ] [ f  ] [ [ amana>bit ] map t ] smart-if ;
 
 TUPLE: vcarve < amana ;
 : <vcarve> ( -- <vcarve> )
     vcarve new
-    amanavt-db get >>path ;
+    vcarve-db get >>path ;
 
 : with-vcarve-db ( quot -- )
     '[  <vcarve> _  with-db ] call ; inline 
@@ -142,8 +154,9 @@ SYMBOL: sql-statement
   'rate_units' integer  NOT NULL,
   'feed_rate' real,
   'plunge_rate' real,
-  'id' text PRIMARY KEY UNIQUE NOT NULL )"
-    clean-whitespace  do-amana 2drop ;
+  'id' text PRIMARY KEY UNIQUE NOT NULL,
+  'amana_id' text )"        
+   clean-whitespace  do-amana 2drop ;
 
 : amanavt-preamble ( -- sql )
     "SELECT 
@@ -189,7 +202,8 @@ SYMBOL: sql-statement
 : bit-add ( bit -- )
     tuple>array  unclip drop 
     "INSERT OR REPLACE INTO amana VALUES (" swap ! )
-    [ dup string? [ hard-quote ] when                             
+    [ dup string? [ hard-quote ] when
+      dup ratio? [ 1.0 * ] when 
       dup number? [ number>string ] when
       dup [ drop "NULL" ] unless
       ", " append  append
@@ -203,9 +217,10 @@ SYMBOL: sql-statement
 : find-bit-names ( named --  bit ? )
     "name LIKE " prepend { } 1sequence bit-where ;
 
-: find-bit-id ( string -- bit ? )
+: find-bit-id ( string -- bit )
     hard-quote  "id = "  prepend
-    amana-where prepend  do-amana ;
+    amana-where prepend  do-amana
+    drop first ;
 
 : 1/4-bits ( -- bits )
     { "diameter = 0.25" "units = 1" } bit-where drop ;
@@ -219,22 +234,23 @@ SYMBOL: sql-statement
 : imperial-bits ( -- bits )
     { "units = 0" } bit-where drop ;
 
-: resurface-bit ( -- bit )
-    "lopud-divok" find-bit-id
-    [ drop "Bit not found" ] unless ; 
+: all-bits ( -- bits )
+    { "id NOT NULL" } bit-where drop ;
 
 : vcarve-bits ( -- bits )
     amanavt-preamble sql-statement set
-    [ sql-statement get sql-query ] with-vcarve-db   amanas>bits drop ;
+    [ sql-statement get sql-query ] with-vcarve-db
+    amanavt>bits drop ;
 
-: gather-amana-data ( -- bits )
+: amanavt-bits ( -- bits )
     amanavt-preamble sql-statement set
     vcarve new  amanavt-db get >>path  
-    [ sql-statement get sql-query  ] with-db  amanas>bits drop ;
+    [ sql-statement get sql-query  ] with-db ;
 
 : create-amana-db ( -- )
     amana-drop  amana-create 
-    gather-amana-data  [ bit-add ] each ;
+    amanavt-bits  amanavt>bits drop
+    [ bit-add ] each ;
 
 TUPLE: bit-gadget < pack bit values ;
 SYMBOLS: bitName bitToolType bitDiameter bitUnits bitFeedRate bitRateUnits bitPlungeRate
@@ -255,8 +271,8 @@ bit-gadget "toolbar" f {
 } define-command-map
 
 : default-bit ( bit -- assoc )
-    uuid1 string>uuid  32 >quint
-    >>id bit  associate  H{
+    quintid >>id bit
+    associate  H{
         { bitName "New Bit" }
         { bitToolType 0 }
         { bitDiameter 0.25 }

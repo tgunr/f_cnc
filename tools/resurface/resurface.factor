@@ -106,12 +106,6 @@ FROM: cnc.bit => >mm ;
     [ resurfacey  ] keep
     bounds-check
     ;
-
-: resurface ( xmax ymax -- )
-    "lopud-divok" find-bit-id
-    [ -rot bit-resurface ]
-    [ drop 2drop  "Bit not found" print ]
-    if ;
     
 GLOBAL: xmax
 GLOBAL: ymax
