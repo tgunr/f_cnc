@@ -5,36 +5,46 @@
 ! Copyright (C) 2022 Dave Carlton.
 ! See http://factorcode.org/license.txt for BSD license.
 
-USING: accessors alien.enums alien.syntax cnc.jobs db.tuples
+USING: accessors alien.enums alien.syntax cnc cnc.jobs db.tuples
 db.types kernel uuid ;
 
 IN: cnc.material
 
-TUPLE: material id name source cost ;
+TUPLE: material name source cost id ;
 
-material "MATERIAL" {
-    { "id" "ID" +db-assigned-id+ }
-    { "name" "NAME" TEXT }
-    { "source" "SOURCE" TEXT }
-    { "cost" "COST" DOUBLE }
+material "material" {
+    { "name" "name" TEXT }
+    { "source" "source" TEXT }
+    { "cost" "cost" DOUBLE }
+    { "id" "id" TEXT +user-assigned-id+ +not-null+ }
 } define-persistent 
     
 : <material> ( name source cost -- material )
-    material new
-    swap >>cost
-    swap >>source
-    swap >>name ;
+    quintid material boa ;
 
 :: find-material ( named -- material )
-    [ T{ material { name named } } select-tuple ] with-jobs-db ;
+    [ T{ material { name named } } select-tuple ] with-cncdb ;
 
 :: new-material ( named source cost -- material )
     [ material ensure-table 
       material new
       named >>name  source >>source  cost >>cost
-      dup insert-tuple
-    ] with-jobs-db ;
+      dup replace-tuple
+    ] with-cncdb ;
     
 : list-materials ( -- seq )
     1 ;
+
+: define-materials ( -- )
+    [ material ensure-table
+      "Plywoord Sanded 3/4" "Lowes" 57.00 <material> replace-tuple
+    ] with-cncdb ;
+
+! : define-all ( -- )
+!     define-types define-spindles define-machines  define-bits  define-materials ;
+
+: save-jobs ( -- )
+    [  
+    ] with-cncdb
+;
 

@@ -4,10 +4,10 @@
 ! Description: Build gcode to resurface 
 ! Copyright (C) 2023 Dave Carlton.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors cnc cnc.gcode cnc.job cnc.jobs cnc.machine cnc.tools formatting
-io kernel math multiline sequences io.encodings.utf8 io.files math.parser
-cnc.bit cnc.machine.1F command-line namespaces variables generalizations sequences.generalizations prettyprint ;
-IN: cnc.tools
+USING: accessors cnc.bit cnc.gcode cnc.machine cnc.tools formatting io
+io.encodings.utf8 io.files io.launcher kernel math math.parser
+multiline namespaces sequences variables syntax.terse ;
+IN: cnc.resurface
 
 :: do-x ( gcodes x ymax step -- gcodes )
     gcodes
@@ -24,39 +24,46 @@ IN: cnc.tools
     ;
 
 :: surface-x ( gcodes toolpath -- gcodes )  ! assume starts at home, ends at home
-    toolpath machine>> x-max>> :> xmax
-    toolpath machine>> y-max>> :> ymax
+    toolpath machine>> xmax>> :> xmax
+    toolpath machine>> ymax>> :> ymax
+    toolpath bit>> stepover>> >number :> step
     0 :> x!  0 :> y! 
     gcodes
     [ x xmax <= ]
     (( up over down over ))
-    [   x ymax toolpath bit>> stepover>> >number do-x
-        x toolpath bit>> stepover>> >number 2 * + x!
-        x 0     "X %.02f Y %.02f" sprintf  suffix
+    [   x ymax step do-x
+        x step 2 * + x!
+        x 0 "X %.02f Y %.02f" sprintf  suffix
     ]  while
-    but-last
+    but-last ! do last step to remaining distance
+    xmax step /mod nip :> laststep  x step - :> lastx
+    lastx laststep + 0 "X %.02f Y %.02f" sprintf  suffix
+    lastx ymax laststep do-x 
     ;
  
 :: surface-y ( gcodes toolpath -- gcodes )  ! assume starts at home, ends at home
-    toolpath machine>> x-max>> :> xmax
-    toolpath machine>> y-max>> :> ymax
+    toolpath machine>> xmax>> :> xmax
+    toolpath machine>> ymax>> :> ymax
+    toolpath bit>> stepover>> >number :> step
     0 :> x!  0 :> y!
     gcodes
-    [ y ymax <= ]
+    [ y ymax < ]
     (( across up back up ))
-    [   y xmax toolpath bit>> stepover>> >number do-y
-        y toolpath bit>> stepover>> >number 2 * + y!
+    [   y xmax step do-y
+        y step 2 * + y!
         0 y "X %.02f Y %.02f" sprintf  suffix
     ]  while
-    but-last
+    but-last ! do last step to remaining distance
+    ymax step /mod nip :> laststep  y step - :> lasty
+    0 lasty laststep + "X %.02f Y %.02f" sprintf  suffix
+    lasty xmax laststep do-y 
     ;
 
-: <surface-job> ( xmax ymax -- machine )
-    <1F>
+: <surface-job> ( xmax ymax machine -- machine )
     "Resurface" >>name
     "Resurface Job" >>model
-    swap >>y-max
-    swap >>x-max ;
+    swap >>ymax
+    swap >>xmax ;
 
 FROM: cnc.gcode => f ; 
 :: resurfacex ( toolpath -- )
@@ -98,15 +105,21 @@ FROM: cnc.gcode => f ;
     [ toolpath boundary ] with-file-writer ;
 
 SYMBOL: LAST-TOOLPATH
-FROM: cnc.bit => >mm ; 
-: bit-resurface ( bit xmax ymax -- )
+
+: bit-resurface ( bit xmax ymax machine -- )
     <surface-job> <toolpath>
     dup LAST-TOOLPATH set
     [ resurfacex  ] keep
     [ resurfacey  ] keep
     bounds-check
     ;
-    
+
+FROM: cnc.bit => bit-id= ; 
+
+:: resurface ( xmax ymax machine -- toolpath )
+    "mukaj-togif" bit-id= 
+    xmax ymax machine bit-resurface  LAST-TOOLPATH get ;
+
 GLOBAL: xmax
 GLOBAL: ymax
 GLOBAL: bitsize

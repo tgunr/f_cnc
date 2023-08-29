@@ -4,23 +4,21 @@
 ! Description: Another fine Factor file!
 ! Copyright (C) 2022 Dave Carlton.
 ! See http://factorcode.org/license.txt for BSD license.
-USING: accessors cnc cnc.gcode cnc.job cnc.jobs cnc.machine formatting
-io kernel math multiline sequences io.encodings.utf8 io.files math.parser
-cnc.bit cnc.machine.1F command-line namespaces variables generalizations sequences.generalizations prettyprint ;
+USING: accessors cnc.gcode cnc.bit io kernel sequences ;
 IN: cnc.tools
 
 TUPLE: toolpath  id machine bit gcode ;
 : <toolpath> ( bit machine -- toolpath )
     toolpath new
     swap >>machine
-    swap >mm >>bit
+    swap >>bit
     ;
 
 FROM: cnc.gcode => f ;
 
 :: boundary ( toolpath -- )   
-    toolpath machine>> x-max>> :> xmax
-    toolpath machine>> y-max>> :> ymax
+    toolpath machine>> xmax>> :> xmax
+    toolpath machine>> ymax>> :> ymax
     { }
     90 G +g
     g1 3000 f +g

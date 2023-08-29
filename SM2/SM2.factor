@@ -8,7 +8,7 @@ formatting kernel literals math multiline namespaces prettyprint
 variables ;
 FROM: cnc.jobs => with-jobs-db ;
 
-IN: cnc.gcode
+IN: cnc.SM2
 : bed-leveling ( -- gcode )  1029 G ;
 
 : firmware-info ( -- gcode )  1005 M ;
